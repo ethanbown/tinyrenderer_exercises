@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -26,7 +27,45 @@ struct vec3 {
 		default: throw std::out_of_range(std::to_string(i) + " is out of range\n");
 		}
 	}
+
+	T dot(const vec3<T>& vec) {
+		return this->x * vec.x 
+			 + this->y * vec.y
+			 + this->z * vec.z;
+	}
+
+	T dot(const vec3<T>& vec) const {
+		return this->x * vec.x
+			+ this->y * vec.y
+			+ this->z * vec.z;
+	}
+
+	vec3<T> operator+(const vec3<T>& vec) {
+		return vec3<T>(this->x + vec.x, this->y + vec.y, this->z + vec.z);
+	}
+
+	vec3<T> operator+(const vec3<T>& vec) const {
+		return vec3<T>(this->x + vec.x, this->y + vec.y, this->z + vec.z);
+	}
+
+	vec3<T> operator-(const vec3<T>& vec) {
+		return vec3<T>(this->x - vec.x, this->y - vec.y, this->z - vec.z);
+	}
+
+	vec3<T> operator-(const vec3<T>& vec) const {
+		return vec3<T>(this->x - vec.x, this->y - vec.y, this->z - vec.z);
+	}
+
+	template<typename T>
+	friend std::ostream& operator<<(std::ostream& os, const vec3<T>& vec);
 };
 
 using vec3f = vec3<float>;
 using vec3i = vec3<int>;
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const vec3<T>& vec) {
+	os << vec.x << " " << vec.y << " " << vec.z;
+	return os;
+}
+
