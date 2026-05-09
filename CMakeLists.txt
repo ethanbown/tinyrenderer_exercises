@@ -23,7 +23,7 @@ find_package(OpenMP COMPONENTS CXX)
 
 set(SOURCES main.cpp tgaimage.cpp)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES} "model.h" "model.cpp" "vec3.h" )
 target_link_libraries(${PROJECT_NAME} PRIVATE $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
 
 file(GENERATE OUTPUT .gitignore CONTENT "*")
