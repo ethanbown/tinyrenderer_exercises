@@ -137,33 +137,42 @@ void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor c
             double beta = signed_triangle_area(vec3i(x, y, 0), c, a) / total_area;
             double gamma = signed_triangle_area(vec3i(x, y, 0), a, b) / total_area;
             if (alpha < 0.0 || beta < 0.0 || gamma < 0.0) continue;
-            framebuffer.set(x, y, color);
+            double alp = alpha, bet = beta, gam = gamma;
+            if (alp > bet) std::swap(alp, bet);
+            if (bet > gam) std::swap(bet, gam);
+            if (alp > bet) std::swap(alp, bet);
+            if (alp > 1.0 / 16.0 && bet > 1.0 / 16.0) continue;
+            unsigned char az = static_cast<unsigned char>(alpha * 255);
+            unsigned char bz = static_cast<unsigned char>(beta * 255);
+            unsigned char cz = static_cast<unsigned char>(gamma * 255);
+            framebuffer.set(x, y, {az, bz, cz, 0});
         }
     }
 }
 
-constexpr int width = 800;
-constexpr int height = 800;
+constexpr int width = 64;
+constexpr int height = 64;
 
 int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    //Model t = getData("../../../a.txt", width, height);
+    Model t = getData("../../../a.txt", width, height);
     //Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
-    Model t = getData("../../../obj/african_head/african_head.obj", width, height);
-    std::srand(std::time({}));
+    //Model t = getData("../../../obj/african_head/african_head.obj", width, height);
+    triangle(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, green);
+    //std::srand(std::time({}));
 
-    for (int i = 0; i < t.nfaces(); i++) {
-        std::cout << "Row " << i << '\n';
-        auto [ai, bi, ci] = t.atf(i);
-        auto a = t.projection(t.atv(ai));
-        auto b = t.projection(t.atv(bi));
-        auto c = t.projection(t.atv(ci));
-        TGAColor color = { static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255) };
-        triangle(a, b, c, framebuffer, color);
-    }
+    //for (int i = 0; i < t.nfaces(); i++) {
+    //    std::cout << "Row " << i << '\n';
+    //    auto [ai, bi, ci] = t.atf(i);
+    //    auto a = t.projection(t.atv(ai));
+    //    auto b = t.projection(t.atv(bi));
+    //    auto c = t.projection(t.atv(ci));
+    //    TGAColor color = { static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255) };
+    //    triangle(a, b, c, framebuffer, color);
+    //}
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
