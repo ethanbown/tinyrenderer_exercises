@@ -98,7 +98,7 @@ vec3f static intToFloat(const vec3i vec) {
 }
 
 
-void triangle(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebuffer, const TGAColor color) {
+void wireframe(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebuffer, const TGAColor color) {
     auto [ax, ay, az] = a;
     auto [bx, by, bz] = b;
     auto [cx, cy, cz] = c;
@@ -111,100 +111,35 @@ void triangle(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebuffer
     framebuffer.set(cx, cy, white);
 }
 
-void triangleFill(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebuffer, const TGAColor color) {
+double signed_triangle_area(const vec3i a, const vec3i b, const vec3i c) {
+    return 0.5 * (
+         (b.y - a.y) * (b.x + a.x) 
+       + (c.y - b.y) * (c.x + b.x)
+       + (a.y - c.y) * (a.x + c.x));
+} 
 
-    // create rectangle that surrounds the triagle
-    // with lower left corner and upper right corner
-    auto lowerLeftX = std::min({ a.x, b.x, c.x });
-    auto lowerLeftY = std::min({ a.y, b.y, c.y });
-    auto upperRightX = std::max({ a.x, b.x, c.x });
-    auto upperRightY = std::max({ a.y, b.y, c.y });
-    // store halfway points of AB, BC, and CA vectors and
-    // create vectors orthogonal to AB, BC, and CA
-    //std::cout << a << '\n' << b << '\n' << c << "\n\n";
+void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor color) {
+    // get the lower left corner and
+    // upper right corner of the bounding box
+    int bbminx = std::min({ a.x, b.x, c.x });
+    int bbminy = std::min({ a.y, b.y, c.y });
+    int bbmaxx = std::max({ a.x, b.x, c.x });
+    int bbmaxy = std::max({ a.y, b.y, c.y });
+    // get total area of the triangle
+    double total_area = signed_triangle_area(a, b, c);
+    // if < 1.0, then the face is back facing
+    if (total_area < 1.0) return;
 
-    vec3i ABh(std::floor((a.x + b.x) / 2.0), std::floor((a.y + b.y) / 2.0), 0),
-          BCh(std::floor((b.x + c.x) / 2.0), std::floor((b.y + c.y) / 2.0), 0),
-          CAh(std::floor((c.x + a.x) / 2.0), std::floor((c.y + a.y) / 2.0), 0);
-    auto [ax, ay, az] = b - a;
-    auto [bx, by, bz] = c - b;
-    auto [cx, cy, cz] = a - c;
-
-    std::swap(ax, ay);
-    ax = -ax;
-    std::swap(bx, by);
-    bx = -bx;
-    std::swap(cx, cy);
-    cx = -cx;
-    vec3i ao(ax, ay, 0), bo(bx, by, 0), co(cx, cy, 0);
-    //std::cout << ao << '\n' << bo << '\n' << co << '\n';
-   
-    // loop over every pixel in the box and check
-    // if it is inside the triangle
-    for (int i = lowerLeftX; i <= upperRightX; i++) {
-        for (int j = lowerLeftY; j <= upperRightY; j++) {
-            //std::cout << i << " " << j << '\n';
-            // create vector from pixel to
-            // midway point of AB, BC, and CA
-            vec3i pixelAB = ABh - vec3i(i, j, 0);
-            vec3i pixelBC = BCh - vec3i(i, j, 0);
-            vec3i pixelCA = CAh - vec3i(i, j, 0);
-            // check if all three dot products are
-            // the same sign
-            int dotao = pixelAB.dot(ao);
-            int dotbo = pixelBC.dot(bo);
-            int dotco = pixelCA.dot(co);
-            //std::cout << dotao << " " << dotbo << " " << dotco << '\n';
-            bool allPos = (dotao >= 0 && dotbo >= 0 && dotco >= 0);
-            bool allNeg = (dotao <= 0 && dotbo <= 0 && dotco <= 0);
-            //std::cout << (allPos || allNeg) << '\n';
-            
-            // only color pixel if all three dot products are positive
-            if (allPos || allNeg) {
-                framebuffer.set(i, j, color);
-            }
+#pragma omp parallel for
+    for (int x = bbminx; x <= bbmaxx; x++) {
+        for (int y = bbminy; y <= bbmaxy; y++) {
+            double alpha = signed_triangle_area(vec3i(x, y, 0), b, c) / total_area;
+            double beta = signed_triangle_area(vec3i(x, y, 0), c, a) / total_area;
+            double gamma = signed_triangle_area(vec3i(x, y, 0), a, b) / total_area;
+            if (alpha < 0.0 || beta < 0.0 || gamma < 0.0) continue;
+            framebuffer.set(x, y, color);
         }
-        
-        framebuffer.set(a.x, a.y, yellow);
-        framebuffer.set(b.x, b.y, yellow);
-        framebuffer.set(c.x, c.y, yellow);
     }
-}
-
-void scanline(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor color) {
-    auto [aax, aay, aaz] = a;
-    auto [bbx, bby, bbz] = b;
-    auto [ccx, ccy, ccz] = c;
-    // sort vertices by y
-    if (a.y > b.y) vec3i::swap(a, b);
-    if (b.y > c.y) vec3i::swap(b, c);
-    if (a.y > b.y) vec3i::swap(a, b);
-    // long edge is a to c
-    // short edges are a to b, b to c
-    // draw lower half
-    for (int i = a.y; i < b.y; i++) {
-        float t = (i - a.y) / static_cast<float>(b.y - a.y);
-        float shortx = a.x + t * (b.x - a.x);
-        t = (i - a.y) / static_cast<float>(c.y - a.y);
-        float longx = a.x + t * (c.x - a.x);
-        int leftX = std::min(shortx, longx);
-        int rightX = std::max(shortx, longx);
-        line(leftX, i, rightX, i, framebuffer, color);
-    }
-    // draw upper half
-    for (int i = b.y; i < c.y; i++) {
-        float t = (i - b.y) / static_cast<float>(c.y - b.y);
-        float shortx = b.x + t * (c.x - b.x);
-        t = (i - a.y) / static_cast<float>(c.y - a.y);
-        float longx = a.x + t * (c.x - a.x);
-        int leftX = std::min(shortx, longx);
-        int rightX = std::max(shortx, longx);
-        line(leftX, i, rightX, i, framebuffer, color);
-    }
-
-    framebuffer.set(aax, aay, yellow);
-    framebuffer.set(bbx, bby, yellow);
-    framebuffer.set(ccx, ccy, yellow);
 }
 
 constexpr int width = 800;
@@ -212,29 +147,23 @@ constexpr int height = 800;
 
 int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    Model t = getData("../../../a.txt", width, height);
-    scanline(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, red);
-    scanline(floatToInt(t.atv(3)), floatToInt(t.atv(4)), floatToInt(t.atv(5)), framebuffer, white);
-    scanline(floatToInt(t.atv(6)), floatToInt(t.atv(7)), floatToInt(t.atv(8)), framebuffer, green);
-    //triangleFill(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, red);
-    //triangleFill(floatToInt(t.atv(3)), floatToInt(t.atv(4)), floatToInt(t.atv(5)), framebuffer, white);
-    //triangleFill(floatToInt(t.atv(6)), floatToInt(t.atv(7)), floatToInt(t.atv(8)), framebuffer, green);
+    //Model t = getData("../../../a.txt", width, height);
     //Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
-    //Model t = getData("../../../obj/african_head/african_head.obj", width, height);
-    //std::srand(std::time({}));
+    Model t = getData("../../../obj/african_head/african_head.obj", width, height);
+    std::srand(std::time({}));
 
-    //for (int i = 0; i < t.nfaces(); i++) {
-    //    std::cout << "Row " << i << '\n';
-    //    auto [ai, bi, ci] = t.atf(i);
-    //    auto a = t.projection(t.atv(ai));
-    //    auto b = t.projection(t.atv(bi));
-    //    auto c = t.projection(t.atv(ci));
-    //    TGAColor color = { static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255) };
-    //    scanline(a, b, c, framebuffer, color);
-    //}
+    for (int i = 0; i < t.nfaces(); i++) {
+        std::cout << "Row " << i << '\n';
+        auto [ai, bi, ci] = t.atf(i);
+        auto a = t.projection(t.atv(ai));
+        auto b = t.projection(t.atv(bi));
+        auto c = t.projection(t.atv(ci));
+        TGAColor color = { static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255) };
+        triangle(a, b, c, framebuffer, color);
+    }
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
