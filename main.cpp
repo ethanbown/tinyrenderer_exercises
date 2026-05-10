@@ -20,8 +20,6 @@ constexpr TGAColor green   = {  0, 255,   0, 255};
 constexpr TGAColor red     = {  0,   0, 255, 255};
 constexpr TGAColor blue    = {255, 128,  64, 255};
 constexpr TGAColor yellow  = {  0, 200, 255, 255};
-constexpr int width = 800;
-constexpr int height = 800;
 
 bool static fixOrientation(int &ax, int &ay, int &bx, int &by) {
     // line is steep if the difference between the x coords is less 
@@ -47,7 +45,7 @@ void static nextPos(int& y, int& ierror, const int ax, const int ay, const int b
     ierror -= 2 * (bx - ax) * (ierror > bx - ax);
 }
 
-void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, TGAColor color) {
+void line(int ax, int ay, int bx, int by, TGAImage& framebuffer, const TGAColor color) {
     bool steep = fixOrientation(ax, ay, bx, by);
     int y = ay;
     int ierror = 0;
@@ -140,7 +138,7 @@ void triangleFill(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebu
     cx = -cx;
     vec3i ao(ax, ay, 0), bo(bx, by, 0), co(cx, cy, 0);
     //std::cout << ao << '\n' << bo << '\n' << co << '\n';
-    
+   
     // loop over every pixel in the box and check
     // if it is inside the triangle
     for (int i = lowerLeftX; i <= upperRightX; i++) {
@@ -166,35 +164,77 @@ void triangleFill(const vec3i a, const vec3i b, const vec3i c, TGAImage& framebu
                 framebuffer.set(i, j, color);
             }
         }
-        /*
+        
         framebuffer.set(a.x, a.y, yellow);
         framebuffer.set(b.x, b.y, yellow);
-        framebuffer.set(c.x, c.y, yellow);*/
+        framebuffer.set(c.x, c.y, yellow);
     }
 }
 
+void scanline(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor color) {
+    auto [aax, aay, aaz] = a;
+    auto [bbx, bby, bbz] = b;
+    auto [ccx, ccy, ccz] = c;
+    // sort vertices by y
+    if (a.y > b.y) vec3i::swap(a, b);
+    if (b.y > c.y) vec3i::swap(b, c);
+    if (a.y > b.y) vec3i::swap(a, b);
+    // long edge is a to c
+    // short edges are a to b, b to c
+    // draw lower half
+    for (int i = a.y; i < b.y; i++) {
+        float t = (i - a.y) / static_cast<float>(b.y - a.y);
+        float shortx = a.x + t * (b.x - a.x);
+        t = (i - a.y) / static_cast<float>(c.y - a.y);
+        float longx = a.x + t * (c.x - a.x);
+        int leftX = std::min(shortx, longx);
+        int rightX = std::max(shortx, longx);
+        line(leftX, i, rightX, i, framebuffer, color);
+    }
+    // draw upper half
+    for (int i = b.y; i < c.y; i++) {
+        float t = (i - b.y) / static_cast<float>(c.y - b.y);
+        float shortx = b.x + t * (c.x - b.x);
+        t = (i - a.y) / static_cast<float>(c.y - a.y);
+        float longx = a.x + t * (c.x - a.x);
+        int leftX = std::min(shortx, longx);
+        int rightX = std::max(shortx, longx);
+        line(leftX, i, rightX, i, framebuffer, color);
+    }
+
+    framebuffer.set(aax, aay, yellow);
+    framebuffer.set(bbx, bby, yellow);
+    framebuffer.set(ccx, ccy, yellow);
+}
+
+constexpr int width = 800;
+constexpr int height = 800;
+
 int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
-   /* Model t = getData("../../../a.txt", width, height);
-    triangleFill(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, red);
-    triangleFill(floatToInt(t.atv(3)), floatToInt(t.atv(4)), floatToInt(t.atv(5)), framebuffer, white);
-    triangleFill(floatToInt(t.atv(6)), floatToInt(t.atv(7)), floatToInt(t.atv(8)), framebuffer, green);
-    */
-    Model t = getData("../../../obj/african_head/african_head.obj", 800, 800);
-    std::srand(std::time({}));
+    Model t = getData("../../../a.txt", width, height);
+    scanline(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, red);
+    scanline(floatToInt(t.atv(3)), floatToInt(t.atv(4)), floatToInt(t.atv(5)), framebuffer, white);
+    scanline(floatToInt(t.atv(6)), floatToInt(t.atv(7)), floatToInt(t.atv(8)), framebuffer, green);
+    //triangleFill(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, red);
+    //triangleFill(floatToInt(t.atv(3)), floatToInt(t.atv(4)), floatToInt(t.atv(5)), framebuffer, white);
+    //triangleFill(floatToInt(t.atv(6)), floatToInt(t.atv(7)), floatToInt(t.atv(8)), framebuffer, green);
+    //Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
+    //Model t = getData("../../../obj/african_head/african_head.obj", width, height);
+    //std::srand(std::time({}));
 
-    for (int i = 0; i < t.nfaces(); i++) {
-        std::cout << "Row " << i << '\n';
-        auto [ai, bi, ci] = t.atf(i);
-        auto a = t.projection(t.atv(ai));
-        auto b = t.projection(t.atv(bi));
-        auto c = t.projection(t.atv(ci));
-        TGAColor color = { static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255) };
-        triangleFill(a, b, c, framebuffer, color);
-    }
+    //for (int i = 0; i < t.nfaces(); i++) {
+    //    std::cout << "Row " << i << '\n';
+    //    auto [ai, bi, ci] = t.atf(i);
+    //    auto a = t.projection(t.atv(ai));
+    //    auto b = t.projection(t.atv(bi));
+    //    auto c = t.projection(t.atv(ci));
+    //    TGAColor color = { static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255),
+    //                       static_cast<unsigned char>(rand() % 255) };
+    //    scanline(a, b, c, framebuffer, color);
+    //}
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }

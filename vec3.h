@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 
 template<typename T>
@@ -54,6 +55,12 @@ struct vec3 {
 
 	vec3<T> operator-(const vec3<T>& vec) const {
 		return vec3<T>(this->x - vec.x, this->y - vec.y, this->z - vec.z);
+	}
+
+	void static swap(vec3<T>& v1, vec3<T>& v2) {
+		std::swap(v1.x, v2.x);
+		std::swap(v1.y, v2.y);
+		std::swap(v1.z, v2.z);
 	}
 
 	template<typename T>
