@@ -4,7 +4,7 @@ vec3i Model::projection(vec3f pos) {
 	auto [xf, yf, zf] = pos;
 	return vec3i((xf + 1.0f) * this->width / 2,
 		(yf + 1.0f) * this->height / 2,
-		0);
+		(zf + 1.0f) * 255.0f / 2);
 }
 
 size_t Model::nvertices() const {

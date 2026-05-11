@@ -1,3 +1,6 @@
+#ifndef VEC3_H
+#define VEC3_H
+
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -37,8 +40,8 @@ struct vec3 {
 
 	T dot(const vec3<T>& vec) const {
 		return this->x * vec.x
-			+ this->y * vec.y
-			+ this->z * vec.z;
+			 + this->y * vec.y
+			 + this->z * vec.z;
 	}
 
 	vec3<T> operator+(const vec3<T>& vec) {
@@ -49,12 +52,44 @@ struct vec3 {
 		return vec3<T>(this->x + vec.x, this->y + vec.y, this->z + vec.z);
 	}
 
+	vec3<T> operator+(const T val) {
+		return vec3<T>(this->x + val, this->y + val, this->z + val);
+	}
+
+	vec3<T> operator+(const T val) const {
+		return vec3<T>(this->x + val, this->y + val, this->z + val);
+	}
+
 	vec3<T> operator-(const vec3<T>& vec) {
 		return vec3<T>(this->x - vec.x, this->y - vec.y, this->z - vec.z);
 	}
 
 	vec3<T> operator-(const vec3<T>& vec) const {
 		return vec3<T>(this->x - vec.x, this->y - vec.y, this->z - vec.z);
+	}
+
+	vec3<T> operator-(const T val) {
+		return vec3<T>(this->x - val, this->y - val, this->z - val);
+	}
+
+	vec3<T> operator-(const T val) const {
+		return vec3<T>(this->x - val, this->y - val, this->z - val);
+	}
+
+	vec3<T> operator*(const T val) {
+		return vec3<T>(this->x * val, this->y * val, this->z * val);
+	}
+
+	vec3<T> operator*(const T val) const {
+		return vec3<T>(this->x * val, this->y * val, this->z * val);
+	}
+
+	vec3<T> operator/(const T val) {
+		return vec3<T>(this->x / val, this->y / val, this->z / val);
+	}
+
+	vec3<T> operator/(const T val) const {
+		return vec3<T>(this->x / val, this->y / val, this->z / val);
 	}
 
 	void static swap(vec3<T>& v1, vec3<T>& v2) {
@@ -76,3 +111,4 @@ std::ostream& operator<<(std::ostream& os, const vec3<T>& vec) {
 	return os;
 }
 
+#endif

@@ -1,3 +1,6 @@
+#ifndef MODEL_H
+#define MODEL_H
+
 #include <vector>
 #include "vec3.h"
 
@@ -18,3 +21,5 @@ public:
     vec3f atv(const int i) const;
     vec3i atf(const int i) const;
 };
+
+#endif

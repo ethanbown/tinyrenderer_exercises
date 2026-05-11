@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -12,6 +13,10 @@
 
 #include "tgaimage.h"
 #include "model.h"
+#include "vec2.h"
+#include "vec3.h"
+#include "vec4.h"
+#include "matrix.h"
 
 #define NDEBUG
 
@@ -118,7 +123,7 @@ double signed_triangle_area(const vec3i a, const vec3i b, const vec3i c) {
        + (a.y - c.y) * (a.x + c.x));
 } 
 
-void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor color) {
+void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, TGAImage& zbuffer, const TGAColor color) {
     // get the lower left corner and
     // upper right corner of the bounding box
     int bbminx = std::min({ a.x, b.x, c.x });
@@ -137,43 +142,53 @@ void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, const TGAColor c
             double beta = signed_triangle_area(vec3i(x, y, 0), c, a) / total_area;
             double gamma = signed_triangle_area(vec3i(x, y, 0), a, b) / total_area;
             if (alpha < 0.0 || beta < 0.0 || gamma < 0.0) continue;
-            double alp = alpha, bet = beta, gam = gamma;
-            if (alp > bet) std::swap(alp, bet);
-            if (bet > gam) std::swap(bet, gam);
-            if (alp > bet) std::swap(alp, bet);
-            if (alp > 1.0 / 16.0 && bet > 1.0 / 16.0) continue;
-            unsigned char az = static_cast<unsigned char>(alpha * 255);
-            unsigned char bz = static_cast<unsigned char>(beta * 255);
-            unsigned char cz = static_cast<unsigned char>(gamma * 255);
-            framebuffer.set(x, y, {az, bz, cz, 0});
+            unsigned char z = static_cast<unsigned char>(alpha * a.z + beta * b.z + gamma * c.z);
+            if (z <= zbuffer.get(x, y)[0]) continue;
+            zbuffer.set(x, y, { z });
+            framebuffer.set(x, y, color);
         }
     }
 }
 
-constexpr int width = 64;
-constexpr int height = 64;
+vec3f rotate(const vec3f& v) {
+    constexpr double a = M_PI / 6;
+    const mat3f Ry({ {static_cast<float>(std::cos(a)), 0.0f, static_cast<float>(std::sin(a))},
+                     {0.0f, 1.0f, 0.0f},
+                     {static_cast<float>(-std::sin(a)), 0.0f, static_cast<float>(std::cos(a))} });
+    return Ry * v;
+}
+
+vec3f perspective(const vec3f& v) {
+    constexpr double c = 12.0;
+    return v / (1 - v.z / c);
+}
+
+constexpr int width = 800;
+constexpr int height = 800;
 
 int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    Model t = getData("../../../a.txt", width, height);
-    //Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
+    TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
+    //Model t = getData("../../../a.txt", width, height);
+    Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
     //Model t = getData("../../../obj/african_head/african_head.obj", width, height);
-    triangle(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, green);
-    //std::srand(std::time({}));
+    //triangle(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, green);
+    std::srand(std::time({}));
+    for (int i = 0; i < t.nfaces(); i++) {
+        //std::cout << "Row " << i << '\n';
+        auto [ai, bi, ci] = t.atf(i);
+        auto a = t.projection(perspective(rotate(t.atv(ai))));
+        auto b = t.projection(perspective(rotate(t.atv(bi))));
+        auto c = t.projection(perspective(rotate(t.atv(ci))));
+        TGAColor color = { static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255),
+                           static_cast<unsigned char>(rand() % 255) };
+        triangle(a, b, c, framebuffer, zbuffer, color);
+    }
 
-    //for (int i = 0; i < t.nfaces(); i++) {
-    //    std::cout << "Row " << i << '\n';
-    //    auto [ai, bi, ci] = t.atf(i);
-    //    auto a = t.projection(t.atv(ai));
-    //    auto b = t.projection(t.atv(bi));
-    //    auto c = t.projection(t.atv(ci));
-    //    TGAColor color = { static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255),
-    //                       static_cast<unsigned char>(rand() % 255) };
-    //    triangle(a, b, c, framebuffer, color);
-    //}
     framebuffer.write_tga_file("framebuffer.tga");
+    zbuffer.write_tga_file("zbuffer.tga");
     return 0;
 }
 
