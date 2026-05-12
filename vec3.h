@@ -106,6 +106,32 @@ using vec3f = vec3<float>;
 using vec3i = vec3<int>;
 
 template <typename T>
+vec3<T> normalize(const vec3<T> v) {
+	std::cout << norm(v) << "\n";
+	return v / norm(v);
+}
+
+template <typename T>
+T norm(const vec3<T> v) {
+	return std::sqrt(std::pow(v.x, 2) + std::pow(v.y, 2) + std::pow(v.z, 2));
+}
+
+template<>
+inline float norm(const vec3 <float> v) {
+	return std::sqrtf(std::powf(v.x, 2) + std::powf(v.y, 2) + std::powf(v.z, 2));
+}
+
+template<>
+inline double norm(const vec3<double> v) {
+	return std::sqrtf(std::powf(v.x, 2) + std::powf(v.y, 2) + std::powf(v.z, 2));
+}
+
+template<typename T>
+vec3<T> cross(const vec3<T> v1, const vec3<T> v2) {
+	return vec3<T>(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x);
+}
+
+template <typename T>
 std::ostream& operator<<(std::ostream& os, const vec3<T>& vec) {
 	os << vec.x << " " << vec.y << " " << vec.z;
 	return os;

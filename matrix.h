@@ -86,6 +86,20 @@ public:
 		return res;
 	}
 
+	vec4<T> operator*(const vec4<T>& rhs) const {
+		mat<T, 4, 1> temp;
+		for (int i = 0; i < 4; i++) {
+			temp[i][0] = rhs[i];
+		}
+		mat<T, 4, 1> temp2 = *this * temp;
+		vec4<T> res;
+		res.x = temp2[0][0];
+		res.y = temp2[1][0];
+		res.z = temp2[2][0];
+		res.w = temp2[3][0];
+		return res;
+	}
+
 	std::vector<T> colToVec(const int j) const {
 		std::vector<T> newVec(X);
 		for (int i = 0; i < X; i++) {

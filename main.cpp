@@ -25,6 +25,7 @@ constexpr TGAColor green   = {  0, 255,   0, 255};
 constexpr TGAColor red     = {  0,   0, 255, 255};
 constexpr TGAColor blue    = {255, 128,  64, 255};
 constexpr TGAColor yellow  = {  0, 200, 255, 255};
+mat4f ModelView, Viewport, Perspective;
 
 bool static fixOrientation(int &ax, int &ay, int &bx, int &by) {
     // line is steep if the difference between the x coords is less 
@@ -123,7 +124,9 @@ double signed_triangle_area(const vec3i a, const vec3i b, const vec3i c) {
        + (a.y - c.y) * (a.x + c.x));
 } 
 
-void triangle(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, TGAImage& zbuffer, const TGAColor color) {
+void razterize(vec3i a, vec3i b, vec3i c, TGAImage& framebuffer, TGAImage& zbuffer, const TGAColor color) {
+    // normalized device coordinates and screen coordinates
+    vec4f ndc[3] = {};
     // get the lower left corner and
     // upper right corner of the bounding box
     int bbminx = std::min({ a.x, b.x, c.x });
@@ -163,32 +166,57 @@ vec3f perspective(const vec3f& v) {
     return v / (1 - v.z / c);
 }
 
+void viewport(const int x, const int y, const int w, const int h) {
+    Viewport = mat4f({ {w / 2.0f, 0.0f, 0.0f, x + w / 2.0f}, {0.0f, h / 2.0f, 0.0f, y + h / 2.0f}, {0.0f, 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f} });
+}
+
+void perspective(const double f) {
+    Perspective = mat4f({ {1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f / static_cast<float>(f), 1.0f} });
+}
+
+void lookat(const vec3f eye, const vec3f center, const vec3f up) {
+    vec3f n = normalize(eye - center);
+    vec3f l = normalize(cross(up, n));
+    vec3f m = normalize(cross(n, l));
+    ModelView = mat4f({ {l.x, l.y, l.z, 0.0f}, {m.x, m.y, m.z, 0.0f}, {n.x, n.y, n.z, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f} }) *
+                mat4f({ {1.0f, 0.0f, 0.0f, -center.x}, {0.0f, 1.0f, 0.0f, -center.y}, {0.0f, 0.0f, 1.0f, -center.z}, {0.0f, 0.0f, 0.0f, 1.0f}});
+}
+
 constexpr int width = 800;
 constexpr int height = 800;
 
 int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
+    std::vector<double> zbuffer(width * height, -std::numeric_limits<double>::max());
     //Model t = getData("../../../a.txt", width, height);
     Model t = getData("../../../obj/diablo3_pose/diablo3_pose.obj", width, height);
     //Model t = getData("../../../obj/african_head/african_head.obj", width, height);
     //triangle(floatToInt(t.atv(0)), floatToInt(t.atv(1)), floatToInt(t.atv(2)), framebuffer, green);
+
+    const vec3f eye({ -1.0f, 0.0f, 2.0f });
+    const vec3f center({ 0.0f, 0.0f, 0.0f });
+    const vec3f up({ 0.0f, 1.0f, 0.0f });
+
+    lookat(eye, center, up);
+    perspective(norm(eye - center));
+    viewport(width / 16, height / 16, width * 7 / 8, height * 7 / 8);
+
     std::srand(std::time({}));
     for (int i = 0; i < t.nfaces(); i++) {
-        //std::cout << "Row " << i << '\n';
-        auto [ai, bi, ci] = t.atf(i);
-        auto a = t.projection(perspective(rotate(t.atv(ai))));
-        auto b = t.projection(perspective(rotate(t.atv(bi))));
-        auto c = t.projection(perspective(rotate(t.atv(ci))));
-        TGAColor color = { static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255),
-                           static_cast<unsigned char>(rand() % 255) };
-        triangle(a, b, c, framebuffer, zbuffer, color);
+        vec4f clip[3];
+        int pos = 0;
+        for (auto d : { t.atf(i).x, t.atf(i).y, t.atf(i).z }) {
+            vec3f v = t.atv(d);
+            clip[pos++] = Perspective * ModelView * vec4f({v.x, v.y, v.z, 1.0f});
+        }
+        TGAColor rnd;
+        for (int c = 0; c < 3; c++) rnd[c] = rand() % 255;
+
     }
 
+    vec3f v(1.0f, 2.0f, 3.0f);
+    std::cout << normalize(v) << '\n';
     framebuffer.write_tga_file("framebuffer.tga");
-    zbuffer.write_tga_file("zbuffer.tga");
     return 0;
 }
 
